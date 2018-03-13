@@ -23,7 +23,7 @@ class GameValue:
     set value, data is json pkg
     data: dict{str:num}
     '''
-    def set(data):
+    def set(self, data):
         self.energy = data["energy"]
         self.magic = data["magic"]
         self.score = data["score"]
@@ -45,7 +45,7 @@ class GameCards:
     set value, data is json pkg
     data: dict{str:list[num]}
     '''
-    def set(data):
+    def set(self, data):
         self.pool = data["pool"]
         self.board = data["board"]
 
@@ -101,16 +101,16 @@ class Game:
         print "all ur cards:"
 
         # print all cards
-        print res["cards"]
+        print self._res["cards"]
 
         card_ids = raw_input("please select 8 cards (type ids seperated by space):")
-        ids = ut.seperate_nums(ids)
+        ids = ut.seperate_nums(card_ids)
         while True:
-            if list_in_list(ids, res["cards"]):
+            if ut.list_in_list(ids, self._res["cards"]):
                 break
             print "Invalid card id, which is not your cards"
             card_ids = raw_input("please select 8 cards (type ids seperated by space):")
-            ids = ut.seperate_nums(ids)
+            ids = ut.seperate_nums(card_ids)
         self.game_cards.pool = ids
         return {
             "statusCode": 1,
@@ -119,19 +119,20 @@ class Game:
         }
 
     def _handle_2(self):
+        print "waiting..."
         return {
-            "statusCode": 2
+            "statusCode": 2,
             "userId": self._user_id,
             "value": self.game_value.get()
         }
 
     #TODO: set interval
     def _handle_3(self):
-        print "question:" + res["question"]
+        print "question:" + self._res["question"]
         # start timer
         answer = raw_input("your answer:")
         return {
-            "statusCode": 3
+            "statusCode": 3,
             "userId": self._user_id,
             "answer": answer,
             "value": self.game_value.get()
@@ -143,13 +144,13 @@ class Game:
 
         #set timer
         card_ids = raw_input("select 3 cards you want to put on board (type ids seperated by space):")
-        ids = ut.seperate_nums(ids)
+        ids = ut.seperate_nums(card_ids)
         while True:
-            if list_in_list(ids, self.game_cards.pool):
+            if ut.list_in_list(ids, self.game_cards.pool):
                 break
             print "Invalid card id, which is not in your pool"
             card_ids = raw_input("select 3 cards you want to put on board (type ids seperated by space):")
-            ids = ut.seperate_nums(ids)
+            ids = ut.seperate_nums(card_ids)
         self.game_cards.board = ids
         return {
             "statusCode": 4,
@@ -159,6 +160,7 @@ class Game:
         }
 
     def _handle_5(self):
+        print "waiting..."
         return {
             "statusCode": 5,
             "userId": self._user_id
@@ -175,16 +177,16 @@ class Game:
         '''
         res["card"]: list[num], size = number of all cards user has
         '''
-        if res["code"] == 0:
+        if self._res["code"] == 0:
             return 1
         else:
-            print "status 0 init: receive error game code:" + str(res["code"])
+            print "status 0 init: receive error game code:" + str(self._res["code"])
             raise GameCodeError()
 
     def _jump_1(self):
-        if res["code"] == 1:
+        if self._res["code"] == 1:
             return 2
-        elif res["code"] == 0:
+        elif self._res["code"] == 0:
             return 3
         else:
             print "status 1 preparation: receive error game code:" + str(res["code"])
@@ -194,20 +196,20 @@ class Game:
         return self._jump_1()
 
     def _jump_3(self):
-        if res["code"] == 0:
-            self.game_value.set(res["value"])
-            print "Great, you're right!" id res["isRight"] else "Sorry, you're wrong!"
+        if self._res["code"] == 0:
+            self.game_value.set(self._res["value"])
+            print "Great, you're right!" if self._res["isRight"] else "Sorry, you're wrong!"
             return 4
         else:
             raise GameCodeError()
 
     def _jump_4(self):
-        if res["code"] == 1:
+        if self._res["code"] == 1:
             return 5
-        elif: res["code"] == 0:
-            self.game_value.set(res["value"])
-            print "You Win" if res["win"] else "You Lose"
-            return 2iio
+        elif self._res["code"] == 0:
+            self.game_value.set(self._res["value"])
+            print "You Win" if self._res["win"] else "You Lose"
+            return 2
         else:
             raise GameCodeError()
 
@@ -227,12 +229,13 @@ class Game:
     '''
     send message to server, by status_code, return json
     '''
-    def request(self, data):
+    def send(self, data):
         try:
             res = r.post(self._url, json=data)
         except:
             raise
         if res.status_code is not 200:
+            print res.text
             raise HTTPCodeError()
         return res.json()
 
@@ -242,6 +245,7 @@ class Game:
     def handle(self):
         data = self._handle[self._status_code]()
         res = self.send(data)
+        return res
 
     def isEnd(self):
         if self._res["code"] == 3:
@@ -252,9 +256,10 @@ class Game:
         while True:
             self._res = self.handle()
             if self.isEnd():
+                print "You Win the Game!"
                 break
             self.jump()
 
 if __name__ == '__main__':
-    g = Game("localhost:8083", 12345)
+    g = Game("http://localhost:8083/", 12345)
     g.run()
