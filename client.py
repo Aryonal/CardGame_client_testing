@@ -4,52 +4,6 @@ import requests as r
 import utility as ut
 from models import *
 
-class GameValue:
-
-    def __init__(self):
-        self.energy = 0
-        self.magic = 0
-        self.score = 0
-
-    def clear(self):
-        self.energy = 0
-        self.magic = 0
-        self.score = 0
-
-    def get(self):
-        return self.__dict__
-
-    '''
-    set value, data is json pkg
-    data: dict{str:num}
-    '''
-    def set(self, data):
-        self.energy = data["energy"]
-        self.magic = data["magic"]
-        self.score = data["score"]
-
-class GameCards:
-
-    def __init__(self):
-        self.pool = [0]*8
-        self.board = [0]*3
-
-    def clear(self):
-        self.pool = [0]*8
-        self.board = [0]*3
-
-    def get(self):
-        return self.__dict__
-
-    '''
-    set value, data is json pkg
-    data: dict{str:list[num]}
-    '''
-    def set(self, data):
-        self.pool = data["pool"]
-        self.board = data["board"]
-
-
 class Game:
 
     '''
@@ -122,27 +76,13 @@ class Game:
         print "waiting..."
         return {
             "statusCode": 2,
-            "userId": self._user_id,
-            "value": self.game_value.get()
+            "userId": self._user_id
         }
 
     #TODO: set interval
     def _handle_3(self):
-        print "question:" + self._res["question"]
-        # start timer
-        answer = raw_input("your answer:")
-        return {
-            "statusCode": 3,
-            "userId": self._user_id,
-            "answer": answer,
-            "value": self.game_value.get()
-        }
-
-    #TODO: set interval
-    def _handle_4(self):
         print "Duel!"
-
-        #set timer
+        #TODO: start timer
         card_ids = raw_input("select 3 cards you want to put on board (type ids seperated by space):")
         ids = ut.seperate_nums(card_ids)
         while True:
@@ -153,17 +93,30 @@ class Game:
             ids = ut.seperate_nums(card_ids)
         self.game_cards.board = ids
         return {
-            "statusCode": 4,
+            "statusCode": 3,
             "userId": self._user_id,
             "cards": self.game_cards.get(),
             "value": self.game_value.get()
         }
 
-    def _handle_5(self):
+    #TODO: set interval
+    def _handle_4(self):
         print "waiting..."
         return {
-            "statusCode": 5,
+            "statusCode": 4,
             "userId": self._user_id
+        }
+
+    def _handle_5(self):
+        print self._res["question"]
+        #TODO: start timer
+        answer = raw_input("type your answer:")
+        return {
+            "statusCode": 5,
+            "userId": self._user_id,
+            "answer": answer,
+            "combo": 5,
+            "value": self.game_value.get()
         }
 
     def _handle_6(self):
@@ -178,6 +131,7 @@ class Game:
         res["card"]: list[num], size = number of all cards user has
         '''
         if self._res["code"] == 0:
+            self._url += "room/" + str(self._res["room"])
             return 1
         else:
             print "status 0 init: receive error game code:" + str(self._res["code"])
@@ -187,6 +141,7 @@ class Game:
         if self._res["code"] == 1:
             return 2
         elif self._res["code"] == 0:
+            self.game_value.set(self._res["value"])
             return 3
         else:
             print "status 1 preparation: receive error game code:" + str(res["code"])
@@ -197,24 +152,26 @@ class Game:
 
     def _jump_3(self):
         if self._res["code"] == 0:
-            self.game_value.set(self._res["value"])
-            print "Great, you're right!" if self._res["isRight"] else "Sorry, you're wrong!"
+            return 5
+        elif self._res["code"] == 1:
             return 4
         else:
             raise GameCodeError()
 
     def _jump_4(self):
-        if self._res["code"] == 1:
-            return 5
-        elif self._res["code"] == 0:
-            self.game_value.set(self._res["value"])
-            print "You Win" if self._res["win"] else "You Lose"
-            return 2
-        else:
-            raise GameCodeError()
+        return self._jump_3()
 
     def _jump_5(self):
-        return self._jump_4()
+        if self._res["code"] == 1:
+            return 6
+        elif self._res["code"] == 0:
+            print "Great! You're right" if self._res["isRight"] else "Oh! You're wring.."
+            print "!!!EXPLOSION!!! rival's cards:" + str(self._res["rivalCards"])
+            print "You win!" if self._res["win"] else "You lose..."
+            self.game_value.set(self._res["value"])
+            return 3
+        else:
+            raise GameCodeError()
 
     def _jump_6(self):
         pass
